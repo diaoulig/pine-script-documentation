@@ -1,0 +1,107 @@
+//@version=5
+indicator("Multi-Timeframe Analysis Example", overlay=true)
+
+// ---- Input Parameters ----
+// Timeframes
+input_tf_1 = input.string("D", "Timeframe 1", options=["15", "30", "60", "240", "D", "W", "M"])
+input_tf_2 = input.string("W", "Timeframe 2", options=["15", "30", "60", "240", "D", "W", "M"])
+input_tf_3 = input.string("M", "Timeframe 3", options=["15", "30", "60", "240", "D", "W", "M"])
+
+// Moving Average Parameters
+fast_length = input.int(20, "Fast MA Length")
+slow_length = input.int(50, "Slow MA Length")
+trend_length = input.int(200, "Trend MA Length")
+
+// Display options
+show_table = input.bool(true, "Show Data Table")
+
+// ---- Functions ----
+// Function to get MA data from a specific timeframe
+getMAData(tf) =>
+    // Request security for each MA separately to avoid syntax issues
+    ema_fast = request.security(syminfo.tickerid, tf, ta.ema(close, fast_length))
+    ema_slow = request.security(syminfo.tickerid, tf, ta.ema(close, slow_length))
+    ema_trend = request.security(syminfo.tickerid, tf, ta.ema(close, trend_length))
+    
+    // Return the data as a tuple
+    [ema_fast, ema_slow, ema_trend]
+
+// Function to determine trend based on MA relationships
+determineTrend(ema_fast, ema_slow, ema_trend, current_price) =>
+    string trend = "NEUTRAL"
+    color trend_color = color.gray
+    
+    if ema_fast > ema_slow and current_price > ema_trend
+        trend := "BULLISH"
+        trend_color := color.green
+    else if ema_fast < ema_slow and current_price < ema_trend
+        trend := "BEARISH"
+        trend_color := color.red
+    
+    [trend, trend_color]
+
+// ---- Calculations ----
+// Get the moving average data for each timeframe
+[tf1_fast, tf1_slow, tf1_trend] = getMAData(input_tf_1)
+[tf2_fast, tf2_slow, tf2_trend] = getMAData(input_tf_2)
+[tf3_fast, tf3_slow, tf3_trend] = getMAData(input_tf_3)
+
+// Determine the trend for each timeframe
+[tf1_trend_str, tf1_color] = determineTrend(tf1_fast, tf1_slow, tf1_trend, close)
+[tf2_trend_str, tf2_color] = determineTrend(tf2_fast, tf2_slow, tf2_trend, close)
+[tf3_trend_str, tf3_color] = determineTrend(tf3_fast, tf3_slow, tf3_trend, close)
+
+// Overall trend based on all timeframes
+overall_bullish = tf1_trend_str == "BULLISH" and tf2_trend_str == "BULLISH"
+overall_bearish = tf1_trend_str == "BEARISH" and tf2_trend_str == "BEARISH"
+string overall_trend = overall_bullish ? "BULLISH" : overall_bearish ? "BEARISH" : "NEUTRAL"
+color overall_color = overall_bullish ? color.green : overall_bearish ? color.red : color.gray
+
+// ---- Plotting ----
+// Plot the current timeframe EMAs
+plot(ta.ema(close, fast_length), "Current Fast EMA", color=color.new(color.blue, 0))
+plot(ta.ema(close, slow_length), "Current Slow EMA", color=color.new(color.purple, 0))
+plot(ta.ema(close, trend_length), "Current Trend EMA", color=color.new(color.orange, 0))
+
+// ---- Table Display ----
+if show_table and barstate.islast
+    // Create a table to display the multi-timeframe data
+    var table trend_table = table.new(position.top_right, 5, 5, bgcolor = color.new(color.black, 80))
+    
+    // Table headers
+    table.cell(trend_table, 0, 0, "TIMEFRAME", bgcolor = color.new(color.gray, 90), text_color = color.white)
+    table.cell(trend_table, 1, 0, "FAST EMA", bgcolor = color.new(color.gray, 90), text_color = color.white)
+    table.cell(trend_table, 2, 0, "SLOW EMA", bgcolor = color.new(color.gray, 90), text_color = color.white)
+    table.cell(trend_table, 3, 0, "TREND EMA", bgcolor = color.new(color.gray, 90), text_color = color.white)
+    table.cell(trend_table, 4, 0, "TREND", bgcolor = color.new(color.gray, 90), text_color = color.white)
+    
+    // Timeframe 1 data
+    table.cell(trend_table, 0, 1, input_tf_1, bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 1, 1, str.tostring(tf1_fast, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 2, 1, str.tostring(tf1_slow, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 3, 1, str.tostring(tf1_trend, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 4, 1, tf1_trend_str, bgcolor = color.new(tf1_color, 80), text_color = color.white)
+    
+    // Timeframe 2 data
+    table.cell(trend_table, 0, 2, input_tf_2, bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 1, 2, str.tostring(tf2_fast, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 2, 2, str.tostring(tf2_slow, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 3, 2, str.tostring(tf2_trend, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 4, 2, tf2_trend_str, bgcolor = color.new(tf2_color, 80), text_color = color.white)
+    
+    // Timeframe 3 data
+    table.cell(trend_table, 0, 3, input_tf_3, bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 1, 3, str.tostring(tf3_fast, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 2, 3, str.tostring(tf3_slow, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 3, 3, str.tostring(tf3_trend, "#.##"), bgcolor = color.new(color.blue, 90))
+    table.cell(trend_table, 4, 3, tf3_trend_str, bgcolor = color.new(tf3_color, 80), text_color = color.white)
+    
+    // Overall trend (derived from timeframes 1 & 2)
+    table.cell(trend_table, 0, 4, "OVERALL", bgcolor = color.new(color.gray, 90), text_color = color.white)
+    table.cell(trend_table, 1, 4, "", bgcolor = color.new(color.gray, 90))
+    table.cell(trend_table, 2, 4, "", bgcolor = color.new(color.gray, 90))
+    table.cell(trend_table, 3, 4, "", bgcolor = color.new(color.gray, 90))
+    table.cell(trend_table, 4, 4, overall_trend, bgcolor = color.new(overall_color, 80), text_color = color.white)
+
+// Background color based on current trend
+bgcolor(color.new(overall_bullish ? color.green : overall_bearish ? color.red : color.gray, 95))
